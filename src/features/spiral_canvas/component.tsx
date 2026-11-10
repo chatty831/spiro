@@ -33,7 +33,9 @@ import {
   useBlur2,
   useOpacity2,
   useSecondary,
-  useComposition
+  useComposition,
+  useMouseFollow,
+  useMouseJelly
 } from './state'
 
 import spiralFrag from './shaders/spirals/spiral.frag'
@@ -129,6 +131,8 @@ export default function SpiralCanvas () {
   const [rainbowHueSpeed2] = useRainbowHueSpeed2()
   const [secondarySpiral] = useSecondary()
   const [composition] = useComposition()
+  const [mouseFollow] = useMouseFollow()
+  const [mouseJelly] = useMouseJelly()
   const bgc = { ...bgColor }
   const bgc2 = { ...bgColor2 }
 
@@ -159,12 +163,60 @@ export default function SpiralCanvas () {
     bgc2.b = newColor2.b
   }
 
+  const mouseTargetRef = useRef({ x: 0.5, y: 0.5 })
+  const springRef = useRef({ px: 0.5, py: 0.5, vx: 0, vy: 0, lastT: 0 })
+  const followRef = useRef(true)
+  followRef.current = mouseFollow
+  const [mouseSpring, setMouseSpring] = useState({ center: [0.5, 0.5], vel: [0, 0], target: [0.5, 0.5] })
+
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent) => {
+      const w = window.innerWidth
+      const h = window.innerHeight
+      if (w > 0 && h > 0) {
+        mouseTargetRef.current = { x: e.clientX / w, y: 1.0 - e.clientY / h }
+      }
+    }
+    const onPointerOut = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch' && e.relatedTarget == null) {
+        const t = mouseTargetRef.current
+        const dx = t.x - 0.5
+        const dy = t.y - 0.5
+        const len = Math.hypot(dx, dy) || 1
+        mouseTargetRef.current = {
+          x: t.x + dx / len * 0.35,
+          y: t.y + dy / len * 0.35
+        }
+      }
+    }
+    window.addEventListener('pointermove', onPointerMove)
+    document.addEventListener('pointerout', onPointerOut)
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      document.removeEventListener('pointerout', onPointerOut)
+    }
+  }, [])
+
   const animFrame = useCallback(() => {
     if (targetRef.current != null) {
       setDimensions({
         width: targetRef.current.offsetWidth,
         height: targetRef.current.offsetHeight
       })
+
+      const now = performance.now() / 1000.0
+      const s = springRef.current
+      const dt = Math.min(Math.max(now - s.lastT, 0), 0.05)
+      s.lastT = now
+
+      const target = followRef.current ? mouseTargetRef.current : { x: 0.5, y: 0.5 }
+      const stiffness = 36.0
+      const damping = 4.2
+      s.vx += (stiffness * (target.x - s.px) - damping * s.vx) * dt
+      s.vy += (stiffness * (target.y - s.py) - damping * s.vy) * dt
+      s.px += s.vx * dt
+      s.py += s.vy * dt
+      setMouseSpring({ center: [s.px, s.py], vel: [s.vx, s.vy], target: [target.x, target.y] })
 
       requestAnimationFrame(animFrame)
     }
@@ -173,6 +225,18 @@ export default function SpiralCanvas () {
   useEffect(() => {
     requestAnimationFrame(animFrame)
   }, [targetRef])
+
+  const aspect = dimensions.height / (dimensions.width || 1)
+  const jellyScale = mouseJelly * 0.35
+  const uJelly = [
+    mouseSpring.vel[0] * jellyScale * 2.0,
+    mouseSpring.vel[1] * jellyScale * 2.0 * aspect
+  ]
+  const springMix = Math.min(Math.max(mouseJelly, 0), 1)
+  const uCenter = [
+    mouseSpring.target[0] + (mouseSpring.center[0] - mouseSpring.target[0]) * springMix,
+    mouseSpring.target[1] + (mouseSpring.center[1] - mouseSpring.target[1]) * springMix
+  ]
 
   const baseLayer = () => (
     <Node shader={compositionShaders.alpha} uniforms={{
@@ -189,7 +253,9 @@ export default function SpiralCanvas () {
                     thickness,
                     blur,
                     opacity,
-                    spiralColor: [bgc.r / 255, bgc.g / 255, bgc.b / 255]
+                    spiralColor: [bgc.r / 255, bgc.g / 255, bgc.b / 255],
+                    uCenter,
+                    uJelly
                   }}/>
     }}/>
   )
@@ -212,7 +278,9 @@ export default function SpiralCanvas () {
                     thickness: thickness2,
                     blur: blur2,
                     opacity: opacity2,
-                    spiralColor: [bgc2.r / 255, bgc2.g / 255, bgc2.b / 255]
+                    spiralColor: [bgc2.r / 255, bgc2.g / 255, bgc2.b / 255],
+                    uCenter,
+                    uJelly
                   }}/>
           }}/>)
         : (

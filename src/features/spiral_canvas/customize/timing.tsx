@@ -17,9 +17,11 @@ import {
   useZoom2,
   useThickness2,
   useBlur2,
-  useSecondary
+  useSecondary,
+  useMouseFollow,
+  useMouseJelly
 } from '../state'
-import { Breadcrumb, FillGap, Label, Page, Slider } from 'components/building_blocks'
+import { Breadcrumb, Checkbox, FillGap, Label, Page, Slider } from 'components/building_blocks'
 import Previewer from 'components/previewer'
 import CustomizePage from 'pages/customize'
 
@@ -41,6 +43,8 @@ export default function Timing () {
   const [thickness2, setThickness2] = useThickness2()
   const [blur2, setBlur2] = useBlur2()
   const [secondarySpiral] = useSecondary()
+  const [mouseFollow, setMouseFollow] = useMouseFollow()
+  const [mouseJelly, setMouseJelly] = useMouseJelly()
   return <Fragment>
     <CustomizePage secondary/>
     <Page primary>
@@ -75,6 +79,11 @@ export default function Timing () {
         blur factor
         <Slider value={blur} onChange={setBlur} min={0} max={1.99} step={0.01}/>
       </Label>
+      <Checkbox value={mouseFollow} onChange={setMouseFollow}>follow mouse</Checkbox>
+      {mouseFollow && <Label value={mouseJelly} setValue={setMouseJelly}>
+        jelly strength
+        <Slider value={mouseJelly} onChange={setMouseJelly} min={0} max={2} step={0.01}/>
+      </Label>}
       {secondarySpiral && <>
         <label>secondary</label>
         { spiralMode2 !== 'circle' && spiralMode2 !== 'concentricSquare' && spiralMode2 !== 'heart' &&

@@ -579,6 +579,7 @@ input[type=checkbox]:checked {
 }
 
 .full_page_spiral {
+    cursor: none;
     width: 100vw;
     height: 100vh;
     margin: 0;
@@ -592,6 +593,7 @@ input[type=checkbox]:checked {
 }
 
 .spiral_container {
+    touch-action: none;
     display: flex;
     justify-content: center;
     align-items: center;
